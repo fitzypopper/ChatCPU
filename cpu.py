@@ -3,7 +3,7 @@ import shlex
 import random
 
 # ============================================================
-# MiniOS 2.1
+# ChatCPU 2.1
 # MiniCPU + RAM + ROM + I/O + SCREEN + INPUT + DISK
 # ============================================================
 
@@ -18,8 +18,8 @@ PORT_KEY_STATE = 0x01
 PORT_SCREEN    = 0x10
 PORT_RANDOM    = 0x20
 
-CACHE_NAME = "MINIOS-OS-V21"
-BASE = "https://minios.local"
+CACHE_NAME = "ChatCPU-OS-V21"
+BASE = "https://ChatCPU.local"
 
 
 # ============================================================
@@ -1143,7 +1143,7 @@ async def shell(line):
 
     if cmd == "help":
 
-        return """MiniOS 2.1
+        return """ChatCPU 2.1
 
 FILES
   ls [path]
@@ -1493,7 +1493,7 @@ async def boot():
     )
 
     print(
-        "             MiniOS 2.1"
+        "             ChatCPU 2.1"
     )
 
     print(
