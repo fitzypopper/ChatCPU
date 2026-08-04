@@ -1,297 +1,184 @@
 # ChatCPU
 
-### A homemade 16 bit computer built inside ChatGPT's Python code runner
+**ChatCPU is a homemade 16 bit computer built entirely in Python and designed to run inside ChatGPT's Python code runner**
 
-> **Very early access · Proof of concept**
+> ⚠️ **Very early access / proof of concept**
 
-ChatCPU is a homemade 16 bit computer built entirely in Python and designed to run inside ChatGPT's built in Python code runner
+ChatCPU contains a custom CPU, RAM, ROM, assembler, shell, persistent filesystem and memory mapped I/O.
 
-It includes its own CPU, RAM, ROM, assembler, shell, persistent filesystem and I/O system
+It does **not** require external packages or a server. The project is specifically designed around the sandboxed Python environment available in ChatGPT.
 
-There is no external server and no third party runtime required
+The persistent filesystem uses the browser's **Cache Storage API**, meaning files can survive between separate Python runs even though the Python runtime itself is reset.
 
-The project runs inside the sandboxed browser based Python environment provided by ChatGPT rather than as a normal local Python application
+## Getting started
 
-Its persistent filesystem uses the browser's Cache Storage API, allowing files and game state to survive between separate executions as long as the cache is not cleared
+ChatCPU is not currently a normal Python program that you install and run locally.
 
-This repository is primarily a backup of the development process and source code from a long conversation with an AI assistant
+To start it inside the supported environment:
 
-> if big ai gets mad and removes me from the face of the earth at least the code survives
+1. Open ChatGPT's Python code runner
+2. Run the ChatCPU bootstrap code that provides the `js` bindings
+3. Run `/minios/boot.py`
+4. The boot process loads the MiniOS shell from the persistent filesystem
+5. Use the shell commands provided by the running environment
 
----
+The important thing to understand is that **the Python runtime and the ChatCPU filesystem are separate**.
 
-## Status
+The Python variables are temporary. The Cache backed filesystem is persistent.
 
-**ChatCPU 2.1 — current version**
+If the Python environment is restarted, the bootstrap/boot code has to be executed again. Files stored in the ChatCPU filesystem can remain available after that.
 
-ChatCPU currently has:
+## Current status
 
-* 16 bit CPU
+**ChatCPU 2.x**
+
+The project currently includes:
+
+* 16 bit CPU architecture
+* A, B, C and D registers
+* Program Counter and Stack Pointer
+* Zero, Carry and Negative flags
 * 64 KiB RAM
 * 64 KiB ROM
 * 16 bit addressing
-* Registers `A`, `B`, `C`, `D`, `PC` and `SP`
-* `Z`, `CF` and `N` flags
 * Custom assembler
-* Labels and two pass assembly
-* 8 bit and 16 bit instruction arguments
-* I/O ports
-* Text screen
-* Keyboard input layer
+* Labels and multi byte instructions in the newer architecture
+* Memory mapped I/O
+* Text based display
+* Keyboard input queue
 * Random number I/O
-* Shell
 * Persistent filesystem
-* Program loading and execution
-* Memory and register inspection
-* Persistent game state
+* MiniOS shell
+* Assembly programs
+* CPU register and memory inspection
 
-And yes
+## Architecture
 
-**ChatCPU can already run games**
+### CPU
 
-We have successfully built a persistent Snake prototype using ChatCPU's RAM and I/O model
+ChatCPU uses a custom 16 bit CPU architecture.
 
-The current Snake prototype supports:
-
-* Snake movement
-* Direction changes
-* Food
-* Score
-* Growth
-* Wall collision
-* Self collision
-* Persistent save state
-* Persistent input through the filesystem
-* Keyboard I/O abstraction
-
-Physical browser keyboard input is not wired directly into the CPU yet
-
----
-
-# Architecture
-
-## CPU
-
-The CPU is implemented as a fetch decode execute loop
-
-Programs are loaded into ROM and executed using the program counter
-
-Most instructions are one opcode byte followed by either no argument, an 8 bit argument or a 16 bit argument
-
-The stack grows downward from `0xFFFF`
-
-Arithmetic and logic instructions update the CPU flags where appropriate
-
-### Registers
-
-| Register | Purpose                  |
-| -------- | ------------------------ |
-| `A`      | Main accumulator         |
-| `B`      | General purpose register |
-| `C`      | General purpose register |
-| `D`      | General purpose register |
-| `PC`     | Program counter          |
-| `SP`     | Stack pointer            |
-| `Z`      | Zero flag                |
-| `CF`     | Carry flag               |
-| `N`      | Negative flag            |
-
----
-
-# Memory
-
-ChatCPU has:
+The CPU contains:
 
 ```text
-64 KiB RAM
-64 KiB ROM
+A   B   C   D
+PC  SP
+Z   CF  N
 ```
 
-Both use 16 bit addressing
+The CPU executes programs stored in ROM and uses RAM for runtime data.
 
-RAM is used for program data, game state, variables and other runtime information
+The stack grows downward from `0xFFFF`.
 
-ROM contains the currently loaded program
-
-16 bit reads and writes are constructed from two 8 bit operations using little endian byte order
-
----
-
-# I/O
-
-ChatCPU uses port based I/O
-
-|   Port | Name             | Description                               |
-| -----: | ---------------- | ----------------------------------------- |
-| `0x00` | `PORT_KEY`       | Read the next key from the keyboard queue |
-| `0x01` | `PORT_KEY_STATE` | Check whether a key is waiting            |
-| `0x10` | `PORT_SCREEN`    | Write to the text screen                  |
-| `0x20` | `PORT_RANDOM`    | Random value from `0–255`                 |
-
-The screen is currently a **32×16 text based display**
-
-There are no real graphics or colors yet
-
----
-
-# Assembler
-
-ChatCPU has a custom two pass assembler
-
-### Pass 1
-
-The assembler:
-
-* Reads the source
-* Calculates instruction sizes
-* Tracks the program counter
-* Registers labels
-
-### Pass 2
-
-The assembler:
-
-* Resolves labels
-* Parses arguments
-* Emits machine code
-
-The assembler supports both 8 bit and 16 bit arguments depending on the instruction
-
-Character literals are supported:
-
-```asm
-LDIA 'H'
-```
-
-which loads the ASCII value of `H`
-
----
-
-# Filesystem
-
-ChatCPU has a persistent virtual filesystem backed by the browser's Cache Storage API
-
-Files are stored as `Request` / `Response` pairs under a fixed cache
-
-The filesystem behaves approximately like a tiny virtual disk
-
-Example paths:
+### Memory
 
 ```text
-/minios/version.txt
-/minios/config.cfg
-/minios/kernel.py
-/minios/shell.py
-/minios/programs/hello.asm
-/minios/programs/snake.hex
-/minios/snake.save
+RAM: 64 KiB
+ROM: 64 KiB
+Address size: 16 bit
 ```
 
-The important distinction is:
+16 bit values are stored using two bytes in little endian order.
 
-**The filesystem persists**
+### Display
 
-**The Python namespace does not**
+The current text display is:
 
-Variables such as:
-
-```python
-cpu
-hardware
-shell
+```text
+32 × 16 characters
 ```
 
-disappear when a new execution starts
+It is a simple text framebuffer rather than a graphical display.
 
-Files written to Cache Storage remain available
+### I/O
 
-Because of this, the bootstrap/runtime code must be loaded again when starting a new Python execution
+Current I/O ports include:
 
----
+|   Port | Name             | Purpose                    |
+| -----: | ---------------- | -------------------------- |
+| `0x00` | `PORT_KEY`       | Read keyboard input        |
+| `0x01` | `PORT_KEY_STATE` | Check whether input exists |
+| `0x10` | `PORT_SCREEN`    | Write to the text display  |
+| `0x20` | `PORT_RANDOM`    | Random number input        |
 
-# Shell
+## Filesystem
 
-MiniOS currently provides a shell with commands including:
+ChatCPU uses the browser's Cache Storage API as its persistent disk.
+
+The filesystem is represented using `Request` and `Response` objects stored inside a Cache.
+
+Example layout:
+
+```text
+/minios/
+├── boot.py
+├── kernel.py
+├── runtime.py
+├── shell.py
+├── config.cfg
+├── system.cfg
+├── version.txt
+├── programs/
+│   ├── hello.asm
+│   ├── input.asm
+│   ├── screen.asm
+│   └── snake.asm
+└── shell/
+    ├── terminal.py
+    ├── commands.txt
+    └── output.txt
+```
+
+The exact files may change during development.
+
+## Shell
+
+MiniOS provides commands for interacting with the system.
+
+Common commands include:
 
 ```text
 help
 ls
-cat
-write
-touch
-rm
+cat <file>
 disk
 version
-asm
-run
+
 regs
-mem
+mem <address>
 reset
-screen
-cls
-key
-keys
+
+asm <file>
+run <file>
+
 clear
 ```
 
-Example:
+For example:
 
 ```text
-minios:~$ ls
+ls
 ```
 
-Programs can be assembled and executed through the shell
+lists files on the persistent ChatCPU filesystem.
 
----
+```text
+regs
+```
 
-# Instruction Set
+shows the CPU registers and flags.
 
-## ChatCPU 2.1
+```text
+mem 0x0000
+```
 
-| Mnemonic | Opcode | Argument   | Description             |
-| -------- | -----: | ---------- | ----------------------- |
-| `NOP`    | `0x00` | —          | Do nothing              |
-| `LDIA`   | `0x01` | 16 bit     | Load constant into A    |
-| `LDIB`   | `0x02` | 16 bit     | Load constant into B    |
-| `LDIC`   | `0x03` | 16 bit     | Load constant into C    |
-| `LDID`   | `0x04` | 16 bit     | Load constant into D    |
-| `ADD`    | `0x05` | —          | `A += B`                |
-| `SUB`    | `0x06` | —          | `A -= B`                |
-| `INC`    | `0x07` | —          | `A += 1`                |
-| `DEC`    | `0x08` | —          | `A -= 1`                |
-| `STA`    | `0x09` | 16 bit     | Store A to RAM          |
-| `LDA`    | `0x0A` | 16 bit     | Load RAM into A         |
-| `JMP`    | `0x0B` | 16 bit     | Jump                    |
-| `JZ`     | `0x0C` | 16 bit     | Jump if zero            |
-| `JNZ`    | `0x0D` | 16 bit     | Jump if not zero        |
-| `CMP`    | `0x0E` | —          | Compare A and B         |
-| `PUSH`   | `0x0F` | —          | Push A                  |
-| `POP`    | `0x10` | —          | Pop into A              |
-| `CALL`   | `0x11` | 16 bit     | Call subroutine         |
-| `RET`    | `0x12` | —          | Return                  |
-| `OUT`    | `0x13` | —          | Output A as a character |
-| `IN`     | `0x14` | —          | Input stub              |
-| `HLT`    | `0x15` | —          | Halt CPU                |
-| `MOVAB`  | `0x16` | —          | `A = B`                 |
-| `MOVBA`  | `0x17` | —          | `B = A`                 |
-| `ADDC`   | `0x18` | —          | `A += C`                |
-| `ADDD`   | `0x19` | —          | `A += D`                |
-| `SUBC`   | `0x1A` | —          | `A -= C`                |
-| `SUBD`   | `0x1B` | —          | `A -= D`                |
-| `XOR`    | `0x1C` | —          | Bitwise XOR             |
-| `AND`    | `0x1D` | —          | Bitwise AND             |
-| `OR`     | `0x1E` | —          | Bitwise OR              |
-| `NOT`    | `0x1F` | —          | Bitwise NOT             |
-| `INP`    | `0x20` | 8 bit port | Read I/O port into A    |
-| `OUTP`   | `0x21` | 8 bit port | Write A to I/O port     |
+inspects RAM.
 
----
+## Assembly
 
-# Example Programs
+ChatCPU has its own assembly language.
 
-## Hello World
-
-Character output:
+A simple program can look like:
 
 ```asm
 LDIA 'H'
@@ -303,225 +190,125 @@ OUT
 HLT
 ```
 
-This produces:
+The assembler converts the source into ChatCPU machine code.
+
+Programs are stored under:
 
 ```text
-Hi
+/minios/programs/
 ```
 
----
+## Instruction set
 
-## Screen Output
+The instruction set is still evolving.
 
-Write an `X` to screen position `(10, 5)`:
+Some of the currently implemented instructions include:
+
+| Mnemonic | Opcode | Description              |
+| -------- | -----: | ------------------------ |
+| `NOP`    | `0x00` | No operation             |
+| `LDIA`   | `0x01` | Load 16 bit value into A |
+| `LDIB`   | `0x02` | Load 16 bit value into B |
+| `ADD`    | `0x05` | Add B to A               |
+| `SUB`    | `0x06` | Subtract B from A        |
+| `INC`    | `0x07` | Increment A              |
+| `DEC`    | `0x08` | Decrement A              |
+| `OUT`    | `0x13` | Output A as a character  |
+| `HLT`    | `0x15` | Halt CPU                 |
+| `INP`    | `0x20` | Read an I/O port         |
+| `OUTP`   | `0x21` | Write to an I/O port     |
+
+The instruction set and implementation are actively changing, so this table may not always perfectly match the latest development version.
+
+## Example
+
+A basic Hello World program:
 
 ```asm
-LDIA 'X'
-LDIB 10
-LDIC 5
-OUTP 0x10
-HLT
-```
-
----
-
-## Keyboard
-
-Read a key from the keyboard queue:
-
-```asm
-INP 0x00
+LDIA 'H'
 OUT
+
+LDIA 'e'
+OUT
+
+LDIA 'l'
+OUT
+
+LDIA 'l'
+OUT
+
+LDIA 'o'
+OUT
+
+LDIA ' '
+OUT
+
+LDIA 'C'
+OUT
+
+LDIA 'h'
+OUT
+
+LDIA 'a'
+OUT
+
+LDIA 't'
+OUT
+
+LDIA 'C'
+OUT
+
+LDIA 'P'
+OUT
+
+LDIA 'U'
+OUT
+
 HLT
 ```
 
----
+## Snake
 
-# Snake
+One of the current test programs is a Snake implementation.
 
-One of the first actual games being developed for ChatCPU is Snake
+It uses ChatCPU's:
 
-The prototype has already demonstrated:
+* keyboard input
+* screen output
+* CPU execution
+* RAM
+* persistent storage
 
-```text
-Persistent RAM state
-        ↓
-Snake position
-        ↓
-Direction
-        ↓
-I/O keyboard input
-        ↓
-Movement
-        ↓
-Collision detection
-        ↓
-Food
-        ↓
-Score
-        ↓
-Persistent save
-```
+The game has already been tested running inside the ChatGPT Python environment.
 
-The current implementation is still a hybrid prototype, but the important parts of the architecture are already there
+Current saved game state can be stored separately from the Python runtime.
 
-The long term goal is to move more of the game logic from Python into actual ChatCPU machine code
+## Known limitations
 
----
+* ChatCPU depends on the Python environment provided by ChatGPT
+* It is not currently a normal standalone Python application
+* The `js` bindings used by the persistent filesystem are environment specific
+* The Python namespace is reset between runs
+* The Cache Storage filesystem can persist between runs
+* The physical browser keyboard is not automatically connected to the CPU
+* Graphics are currently limited to a text based display
+* There are no proper hardware interrupts
+* CPU execution has a cycle limit to prevent infinite loops from locking the runner
+* The instruction set is still under development
+* Some files in the development filesystem may be incomplete or experimental
 
-# Known Limitations
+## Can it run DOOM?
 
-ChatCPU is very much a work in progress
+No.
 
-### Browser keyboard
+Not *yet* anyway
 
-The keyboard input layer exists but physical browser keyboard events are not directly connected to the CPU yet
+A real DOOM port would require substantially more complete CPU functionality, graphics, input, memory management and a much more capable runtime environment.
 
-Currently the input system can be driven through the persistent sandbox filesystem
+Getting persistent storage working in the sandbox was already kind of insane.
 
-A future implementation could use something like `MessageChannel` or another browser event bridge
+## Why does this exist?
 
-### `IN`
+Because apparently building a fake computer inside ChatGPT's Python runner sounded like a good idea.
 
-The original `IN` instruction (`0x14`) is still a stub
-
-The actual I/O interface is currently handled through `INP` and `OUTP`
-
-### Graphics
-
-There is no real graphics hardware
-
-The current display is a text based character grid
-
-No:
-
-* sprites
-* pixels
-* colors
-* framebuffer
-* GPU
-
-yet
-
-### Interrupts
-
-There are no hardware interrupts
-
-Programs currently use polling
-
-### Execution limit
-
-Programs have a cycle limit to prevent accidental infinite loops from hanging the sandbox
-
-### Persistence
-
-Only the Cache Storage filesystem survives between executions
-
-The Python namespace is reset
-
-### Environment dependency
-
-ChatCPU relies on browser APIs exposed by the ChatGPT Python runner, including:
-
-```text
-js.caches
-js.Request
-js.Response
-```
-
-Because of this, it is **not currently a normal standalone Python application**
-
-Porting ChatCPU to local Python would require replacing the persistence layer with something like:
-
-```text
-real files
-SQLite
-or another storage backend
-```
-
----
-
-# Can It Run DOOM?
-
-**No**
-
-Not right now 😭
-
-DOOM would require substantially more than the current ChatCPU provides
-
-Major missing pieces include:
-
-* Real graphics
-* A framebuffer
-* Fast rendering
-* More advanced CPU instructions
-* Real-time input
-* A proper executable format
-* Much more performance
-* A compatible runtime/environment
-
-The current text display and sandboxed input system are nowhere near enough
-
-That said
-
-**ChatCPU can already run Snake**
-
-So we're getting there one tiny homemade CPU at a time
-
----
-
-# Why Does This Exist?
-
-Funnies :)
-
-Also because building a fake computer inside a Python code runner is objectively hilarious
-
-ChatCPU started as a tiny 8 bit experiment with:
-
-```text
-256 bytes RAM
-```
-
-and eventually became:
-
-```text
-ChatCPU 2.1
-
-16 bit CPU
-64 KiB RAM
-64 KiB ROM
-persistent filesystem
-assembler
-shell
-I/O
-games
-```
-
-The original machine was basically:
-
-```text
-793 |
-
-MiniCPU 8-bit
-
-256 bytes RAM
-
-Persistent filesystem
-```
-
-Now we're here
-
-```text
-ChatCPU MiniOS
-
-CPU: ChatCPU
-
-RAM: 65536 bytes
-ROM: 65536 bytes
-
-Persistent filesystem: Cache
-```
-
-And somehow Snake works
-
-😭
+Also funnies :)
