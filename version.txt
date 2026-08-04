@@ -1,0 +1,6 @@
+ChatCPU MiniOS
+Version 2.1
+CPU: ChatCPU
+Architecture: 16-bit
+RAM: 65536
+ROM: 65536
