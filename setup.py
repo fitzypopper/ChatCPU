@@ -1,3 +1,7 @@
+# ========
+# run this when you want to use it for the first time in a chat
+# ========
+
 import js
 import json
 
