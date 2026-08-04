@@ -1,0 +1,42 @@
+; ChatCPU Hello World
+
+LDIA 'H'
+OUT
+
+LDIA 'e'
+OUT
+
+LDIA 'l'
+OUT
+
+LDIA 'l'
+OUT
+
+LDIA 'o'
+OUT
+
+LDIA ' '
+OUT
+
+LDIA 'C'
+OUT
+
+LDIA 'h'
+OUT
+
+LDIA 'a'
+OUT
+
+LDIA 't'
+OUT
+
+LDIA 'C'
+OUT
+
+LDIA 'P'
+OUT
+
+LDIA 'U'
+OUT
+
+HLT
