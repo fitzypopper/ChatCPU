@@ -3,7 +3,7 @@
 ### **this is very early access and a proof of concept** ###
 ChatCPU is a homemade 16-bit computer: CPU, RAM, ROM, assembler, shell, persistent filesystem, and memory-mapped I/O — all implemented in plain Python and runnable directly inside ChatGPT's built-in Python code interpreter (the sandboxed browser-based runner, not a local install). No external dependencies, no server. The disk is persisted via the `caches` API (Cache Storage) available in that sandbox, so state survives between separate runs/messages as long as the cache isn't cleared.
 
-This repo exists as a backup of the development log after a long conversation with an AI assistant, in case that chat ever disappears.
+This repo exists as a backup of the development log after a long conversation with an AI assistant, in case that chat ever disappears. (if big ai got mad and removed me from the face of the earth)
 
 ## Status
 
@@ -18,14 +18,6 @@ This repo exists as a backup of the development log after a long conversation wi
 - Keyboard queue (`hardware.key(...)`) — the input layer exists, but physical browser keyboard isn't wired to it yet
 - Random port (`PORT_RANDOM`)
 - Shell with commands for file management, assembling, running programs, and inspecting registers/memory
-
-## History (short version)
-
-1. **ChatCPU 1.0** — 8-bit CPU, 256 bytes of RAM, could boot and run `hello.asm` via a simple shell on top of a persistent cache-based filesystem.
-2. Discussion about running Doom on it (no, for obvious reasons — no graphics, no framebuffer, nowhere near enough RAM).
-3. Decision to scale up significantly: 64 KiB RAM, 64 KiB ROM, 16-bit addressing — while keeping the instruction set close enough that old programs could still be ported.
-4. **ChatCPU 2.0/2.1** — added a hardware layer: I/O ports, framebuffer (text screen), keyboard queue, random port. The assembler was updated to handle both 8-bit and 16-bit instruction arguments (`ARG8_OPS` / `ARG16_OPS`).
-5. Next step in the log: connect `hardware.key()` to an actual browser keyboard (e.g. via `MessageChannel`), so games like Snake can read input live instead of having keys queued manually through shell commands.
 
 ## Architecture
 
@@ -115,6 +107,10 @@ HLT
 - `run()` has a cycle limit (default 1,000,000) to avoid infinite loops in the sandbox.
 - Only the `caches`-backed disk survives between runs — the Python namespace resets, so the bootstrap cell must be re-executed each session (see Filesystem section above).
 - Tied to ChatGPT's code interpreter environment specifically (relies on `js.caches` / `js.Request` / `js.Response` bindings exposed there) — porting to a plain local Python install would need a different persistence layer (e.g. a real file on disk or SQLite).
+
+## Can it run DOOM?
+
+No. well i mean *sadly* no, not in the current state, it would need graphics drivers and working keyboard inputs, both of which are incredibly complicated or down right impossible due to the sandbox's limitations, i was even lucky to get persistent storage
 
 ## Why this repo exists
 
