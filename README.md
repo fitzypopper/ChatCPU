@@ -12,27 +12,27 @@ The persistent filesystem uses the browser's **Cache Storage API**, meaning file
 
 ## Getting started
 
-ChatCPU is not currently a normal Python program that you install and run locally.
-
-To start it inside the supported environment:
+ChatCPU is a single file (`cpu.py`) that you paste directly into the Python code runner.
 
 1. Open ChatGPT's Python code runner
-2. Run the ChatCPU bootstrap code that provides the `js` bindings
-3. Run `/minios/boot.py`
-4. The boot process loads the MiniOS shell from the persistent filesystem
-5. Use the shell commands provided by the running environment
+2. Paste the whole `cpu.py` content — it ends with `await boot()`, so running it prints the banner, the demo screen and a shell/register demo automatically
+3. To do anything else, paste `cpu.py` **plus** your command in the same block:
+   ```python
+   # cpu.py content...
+   await shell('run /programs/hello.asm')
+   await shell('regs')
+   await shell('screen')
+   ```
 
-The important thing to understand is that **the Python runtime and the ChatCPU filesystem are separate**.
+The important thing to understand is that **the Python namespace is reset between every run** — so any shell command must run in the *same code block* as `cpu.py`. The persistent filesystem, however, survives between runs; `boot()` writes the default files (programs, config, saved game) the first time it runs.
 
-The Python variables are temporary. The Cache backed filesystem is persistent.
-
-If the Python environment is restarted, the bootstrap/boot code has to be executed again. Files stored in the ChatCPU filesystem can remain available after that.
+The important thing to understand is that **the Python variables are temporary but the persistent filesystem survives between runs**.
 
 ## Current status
 
 **ChatCPU 2.x**
 
-The project currently includes:
+The project is a single-file implementation (`cpu.py`) containing:
 
 * 16 bit CPU architecture
 * A, B, C and D registers
@@ -41,8 +41,7 @@ The project currently includes:
 * 64 KiB RAM
 * 64 KiB ROM
 * 16 bit addressing
-* Custom assembler
-* Labels and multi byte instructions in the newer architecture
+* Custom assembler with labels
 * Memory mapped I/O
 * Text based display
 * Keyboard input queue
@@ -107,26 +106,16 @@ ChatCPU uses the browser's Cache Storage API as its persistent disk.
 
 The filesystem is represented using `Request` and `Response` objects stored inside a Cache.
 
-Example layout:
+Example layout (written to persistent storage by `boot()`):
 
 ```text
 /minios/
-├── boot.py
-├── kernel.py
-├── runtime.py
-├── shell.py
+├── version.txt
 ├── config.cfg
 ├── system.cfg
-├── version.txt
-├── programs/
-│   ├── hello.asm
-│   ├── input.asm
-│   ├── screen.asm
-│   └── snake.asm
-└── shell/
-    ├── terminal.py
-    ├── commands.txt
-    └── output.txt
+└── programs/
+    ├── demo.asm
+    └── hello.asm
 ```
 
 The exact files may change during development.
@@ -139,17 +128,24 @@ Common commands include:
 
 ```text
 help
-ls
+ls [path]
 cat <file>
+write <file> <text>
+touch <file>
+rm <file>
 disk
-version
 
 regs
-mem <address>
+mem <address> [length]
 reset
 
 asm <file>
 run <file>
+
+screen
+cls
+key <character>
+keys
 
 clear
 ```
@@ -195,7 +191,7 @@ The assembler converts the source into ChatCPU machine code.
 Programs are stored under:
 
 ```text
-/minios/programs/
+programs/
 ```
 
 ## Instruction set
