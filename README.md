@@ -15,18 +15,45 @@ The persistent filesystem uses the browser's **Cache Storage API**, meaning file
 ChatCPU is a single file (`cpu.py`) that you paste directly into the Python code runner.
 
 1. Open ChatGPT's Python code runner
-2. Paste the whole `cpu.py` content — it ends with `await boot()`, so running it prints the banner, the demo screen and a shell/register demo automatically
-3. To do anything else, paste `cpu.py` **plus** your command in the same block:
+2. Paste the whole `cpu.py` content and run it (it only *defines* the system — no output yet)
+3. Boot it and it installs itself into the persistent filesystem (silently):
    ```python
-   # cpu.py content...
-   await shell('run /programs/hello.asm')
-   await shell('regs')
-   await shell('screen')
+   await boot()
    ```
+    This writes `/minios/cpu.py` plus the default files to the cache. `boot()` prints nothing — run commands via `shell()` or the prompt-style `cmd()`.
+4. From then on, you don't paste `cpu.py` again — just use this small loader, and add your commands after it:
+   ```python
+   import js
+   exec(await (await (await js.caches.open('ChatCPU-OS-V21')).match(js.Request.new('https://ChatCPU.local/minios/cpu.py'))).text())
+   await boot()
+   print(await cmd('ls'))
+   print(await cmd('snake'))
+   ```
+   `cmd('...')` returns the output prefixed with a terminal prompt:
+   ```
+   MiniOS@ChatCPU~$ ls
+   minios/
+   prog/
+   MiniOS@ChatCPU~$ snake
+   === ChatCPU Snake ===
+   ...
+   ```
+   Use `shell('...')` when you want the raw output without the prompt.
+   (Single-line form: `import js;exec(await (await (await js.caches.open('ChatCPU-OS-V21')).match(js.Request.new('https://ChatCPU.local/minios/cpu.py'))).text());await boot();print(await cmd('ls'))`)
 
-The important thing to understand is that **the Python namespace is reset between every run** — so any shell command must run in the *same code block* as `cpu.py`. The persistent filesystem, however, survives between runs; `boot()` writes the default files (programs, config, saved game) the first time it runs.
+### How the self-install works
 
-The important thing to understand is that **the Python variables are temporary but the persistent filesystem survives between runs**.
+The sandbox never gives pasted code a readable `__file__`, so `boot()` cannot read its own source from disk to save it. Instead, `cpu.py` carries a gzip+base64 copy of itself (`_CPU_SRC`); `boot()` uses the real file when it can and falls back to the embedded copy otherwise, so the cache save always succeeds.
+
+If you edit `cpu.py`, refresh the embedded copy before pasting it again:
+
+```
+python3 tools/embed_src.py
+```
+
+`test_cpu.py` verifies the embedded copy is up to date (and that a loader-run `boot()` can re-save itself), so the test suite will fail loudly if you forget.
+
+The important thing to understand is that **the Python namespace is reset between every run** — so `boot()` and all shell commands must run in the *same code block* as the loader (or `cpu.py`). The persistent filesystem, however, survives between runs; `boot()` only writes the default files when they are missing.
 
 ## Current status
 
@@ -110,9 +137,11 @@ Example layout (written to persistent storage by `boot()`):
 
 ```text
 /minios/
+├── cpu.py
 ├── version.txt
 ├── config.cfg
 ├── system.cfg
+├── snake.save
 └── programs/
     ├── demo.asm
     └── hello.asm
@@ -128,11 +157,19 @@ Common commands include:
 
 ```text
 help
-ls [path]
+pwd
+cd <path>
+ls [-l] [path]
 cat <file>
 write <file> <text>
+append <file> <text>
 touch <file>
-rm <file>
+cp <src> <dst>
+mv <src> <dst>
+mkdir <path>
+rmdir <path>
+rm [-r] <path>
+echo <text>
 disk
 
 regs
@@ -140,15 +177,23 @@ mem <address> [length]
 reset
 
 asm <file>
-run <file>
+run <file> [cycles]
+step <file> [cycles]
 
 screen
 cls
 key <character>
 keys
 
+snake
+exec <file>
+
 clear
 ```
+
+Paths are resolved against the current directory (`/` by default): `.`, `..`, and absolute paths all work, e.g. `cd /minios/programs`, then `ls ..`, `write hello2.asm 'LDIA 65\nOUT\nHLT'`.
+
+The working directory survives between runs — `cd` saves it to `/minios/.cwd` and `boot()` restores it, so you can `cd` in one run and continue in the next.
 
 For example:
 
